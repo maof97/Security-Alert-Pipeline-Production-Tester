@@ -19,7 +19,12 @@ import os
 from distutils import util
 
 # CONSTANTS
-OSX_LOCAL = os.environ['OSX_LOCAL']
+OSX_LOCAL_S = os.environ['OSX_LOCAL']
+if OSX_LOCAL_S == "True":
+    OSX_LOCAL = True
+else:
+    OSX_LOCAL = False
+    
 MAX_TEST_QRADAR = 50 # 10 second wait for every round
 MAX_TEST_OTRS = 50
 
