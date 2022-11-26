@@ -187,6 +187,7 @@ def testQradar(tID):
                         else:
                             rlog("d", tID, "Ticket not created in OTRS yet.")
                             dlog("Notes: " , notes)
+                    sleep(10)
 
         except requests.exceptions.RequestException as e:
             print(str(e))
