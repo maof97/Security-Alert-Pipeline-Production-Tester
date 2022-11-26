@@ -66,7 +66,8 @@ LOGGING = {
 
 config.dictConfig(LOGGING)
 logger = logging.getLogger("my-logger")
-print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | OSX Run: Skipping Syslog logging.")
+if OSX_LOCAL:
+    print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | OSX Run: Skipping Syslog logging.")
 
 def logm(*msg):
     print()
