@@ -20,7 +20,7 @@ from logging_helper import rlog
 from logging_helper import dlog
 
 # CONSTANTS
-MAX_TEST_QRADAR = 50 # 10 second wait for every round
+MAX_TEST_QRADAR = 500 # 10 second wait for every round
 MAX_TEST_OTRS = 50
 
 # Instantiate the tester...
@@ -46,11 +46,11 @@ class QRadar():
             os.environ['QRADAR_API_TOKEN'],
         )
 
-    def get_offenses(self):
+    def get_offenses(self, tID):
         fields = ["id", "description", "start_time", "rules", "categories", "credibility", "device_count", "log_sources", "magnitude", "offense_source", "relevance", "severity"]
         params = {
             "fields": ",".join(fields),
-            "filter": "status = OPEN and follow_up = False",
+            "filter": "status = OPEN",
             "sort": "+id",
         }
         try:
@@ -60,9 +60,8 @@ class QRadar():
                 params=params,
             )
         except requests.exceptions.RequestException as e:
-            print(str(e))
-            dlog(str(e))
-            dlog(e.response.text)
+            rlog("e", "0", str(e))
+            rlog("e", "0", e.response.text)
             exit()
         return offenses
 
@@ -78,23 +77,24 @@ class QRadar():
                 params=params,
             )
         except requests.exceptions.RequestException as e:
-            dlog(str(e))
-            dlog(e.response.text)
+            rlog("e", "0", str(e))
+            rlog("e", "0", e.response.text)
         return rule
 
-    def create_note(self, offense, ticket):
+
+    def create_note(self, offense, tID):
         try:
             _ = self.client.request(
                 method="POST",
                 path="/api/siem/offenses/{:d}/notes".format(offense),
                 params={
                     "fields": "",
-                    "note_text": "Ticket #" + str(ticket),
+                    "note_text": "Checked tID." + str(tID),
                 },
             )
         except requests.exceptions.RequestException as e:
-            dlog(str(e))
-            dlog(e.response.text)
+            rlog("e", "0", str(e))
+            rlog("e", "0", e.response.text)
 
 def default(obj):
     if isinstance(obj, datetime.datetime):
@@ -112,7 +112,7 @@ def testQradar(tID):
 
     # QRadar Offenses
     dlog("\tConnecting to {:s} ...".format(config["QRadar"]["host"]))
-    offenses = qradar.get_offenses()
+    offenses = qradar.get_offenses(tID)
     dlog("\t{:d} new offenses".format(len(offenses)))
     if not offenses:
         return False
@@ -142,8 +142,9 @@ def testQradar(tID):
     for offense in offenses:
         try:
             # QRadar Tag and Note
-            qradar.set_tag(offense["id"])
             qradar.create_note(offense["id"], tID)
+            if offense["offense_source"] == str(tID):
+                return True
         except requests.exceptions.RequestException as e:
             print(str(e))
             dlog(str(e))
