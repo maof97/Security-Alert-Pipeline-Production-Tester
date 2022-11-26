@@ -17,6 +17,7 @@
                 "ELASTIC_PW": "Dfd3fbd5bcbca9EbcEc33d9EEdEbbeAcaCCd9fa4Caaf92C4A3Df9DFe9bDbcdfa",
                 "QRADAR_API_TOKEN": "64162b79-ed58-4113-90dc-d53eddf7b0eb",
                 "OTRS_USER_PW_QRADAR": "AFadcCd9da5dcAbcfadca5aaEd3eaCE433CECA2ddEfAbdeaedcb45fdC4aed2ff",
+                "OSX_LOCAL": "True"
               }
         }
     ]

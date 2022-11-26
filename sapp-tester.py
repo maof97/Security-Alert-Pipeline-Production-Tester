@@ -19,6 +19,7 @@ import os
 from distutils import util
 
 # CONSTANTS
+OSX_LOCAL = os.environ['OSX_LOCAL']
 MAX_TEST_QRADAR = 50 # 10 second wait for every round
 MAX_TEST_OTRS = 50
 
@@ -28,7 +29,44 @@ parser.add_argument('--test-id', type=int)
 parser.add_argument('--new-test', action='store_true')
 args = parser.parse_args()
 
-syslog.openlog(logoption=syslog.LOG_PID)
+# Syslog
+
+import logging, sys
+from logging import config
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '%(levelname)s %(module)s P%(process)d T%(thread)d %(message)s'
+            },
+        },
+    'handlers': {
+        'stdout': {
+            'class': 'logging.StreamHandler',
+            'stream': sys.stdout,
+            'formatter': 'verbose',
+            },
+        'sys-logger6': {
+            'class': 'logging.handlers.SysLogHandler',
+            'address': '/dev/log',
+            'facility': "local6",
+            'formatter': 'verbose',
+            },
+        },
+    'loggers': {
+        'my-logger': {
+            'handlers': ['sys-logger6','stdout'],
+            'level': logging.DEBUG,
+            'propagate': True,
+            },
+        }
+    }
+
+config.dictConfig(LOGGING)
+logger = logging.getLogger("my-logger")
+
 
 def logm(*msg):
     print()
@@ -36,7 +74,10 @@ def logm(*msg):
     for m in msg:
         print(m, end='')
 
-    syslog.syslog(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(m))
+    if not OSX_LOCAL:
+        logger.info(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(m))
+
+# #
 
 def newTest():
     logm("Will start a new Test...")
@@ -152,7 +193,7 @@ def testQradar(tID):
         try:
             # QRadar Tag and Note
             qradar.set_tag(offense["id"])
-            qradar.create_note(offense["id"], ticket_number)
+            qradar.create_note(offense["id"], tID)
         except requests.exceptions.RequestException as e:
             print(str(e))
             logm(str(e))
