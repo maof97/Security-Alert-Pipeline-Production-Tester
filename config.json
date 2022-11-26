@@ -1,0 +1,13 @@
+{
+    "QRadar": {
+        "host": "qradar.cloud.swiftbird.de"
+    },
+    "OTRS": {
+        "host": "10.20.1.9",
+        "webservice": "ALERTELAST_API",
+        "CustomerUserLogin": "QRadar_SIEM",
+        "Queue": "SIEM - T1 (Bochum)",
+        "CustomerUser": "QRadar_SIEM",
+        "PriorityID": "3"
+    }
+}
