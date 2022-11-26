@@ -1,6 +1,5 @@
 import os
 import argparse
-import syslog
 import random
 import datetime
 from time import sleep
@@ -9,7 +8,6 @@ import argparse
 import datetime
 from distutils.debug import DEBUG
 import json
-import syslog
 
 import dateutil.tz
 import requests
@@ -18,14 +16,10 @@ import qradar_helper
 import os
 from distutils import util
 
-# CONSTANTS
-OSX_LOCAL_S = os.environ['OSX_LOCAL']
-if OSX_LOCAL_S == "True":
-    OSX_LOCAL = True
-else:
-    OSX_LOCAL = False
+from logging_helper import rlog
+from logging_helper import dlog
 
-DEBUG_TO_SYSLOG = False
+# CONSTANTS
 MAX_TEST_QRADAR = 50 # 10 second wait for every round
 MAX_TEST_OTRS = 50
 
@@ -36,80 +30,8 @@ parser.add_argument('--new-test', action='store_true')
 args = parser.parse_args()
 
 
-# Config Logging #
-
-import logging, sys
-from logging import config
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '%(levelname)s SAPP-Test %(module)s P%(process)d  %(message)s'
-            },
-        },
-    'handlers': {
-        'stdout': {
-            'class': 'logging.StreamHandler',
-            'stream': sys.stdout,
-            'formatter': 'verbose',
-            },
-        'sys-logger6': {
-            'class': 'logging.handlers.SysLogHandler',
-            'address': '/dev/log',
-            'facility': "local6",
-            'formatter': 'verbose',
-            },
-        },
-    'loggers': {
-        'my-logger': {
-            'handlers': ['sys-logger6','stdout'],
-            'level': logging.DEBUG,
-            'propagate': True,
-            },
-        }
-    }
-
-config.dictConfig(LOGGING)
-logger = logging.getLogger("my-logger")
-if OSX_LOCAL:
-    print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | OSX Run: Skipping Syslog logging.")
-
-def logd(*msg): # Debug logging
-    if not OSX_LOCAL and DEBUG_TO_SYSLOG:
-        sl = ""
-        for s in msg:
-            sl += str(s)
-        logger.debug("[D] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
-    print()
-    print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ', end='')
-    for m in msg:
-        print(m, end='')
-
-def rlog(type, tID, *msg):
-    tID = str(tID)
-    sl = ""
-    for s in msg:
-        sl += str(s) 
- 
-    if not OSX_LOCAL:  
-        if type == 'i':
-            logger.info("[I] [tID:" + tID + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
-        if type == 'w':
-            logger.warning("[W] [tID:" + tID + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
-        if type == 'e':
-            logger.error("[E] [tID:" + tID + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
-        if type == 'd':
-            logger.debug("[D] [tID:" + tID + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
-    else:
-        logd(*msg)
-
-# End logging config #
-
-
 def newTest():
-    logd("Will start a new Test...")
+    dlog("Will start a new Test...")
     id = random.randint(0,99999999)
     line="SAPP-Test Initiator QUEBEC. ID='"+str(id)+"'"
     rlog("i", id, line)
@@ -139,8 +61,8 @@ class QRadar():
             )
         except requests.exceptions.RequestException as e:
             print(str(e))
-            logd(str(e))
-            logd(e.response.text)
+            dlog(str(e))
+            dlog(e.response.text)
             exit()
         return offenses
 
@@ -156,8 +78,8 @@ class QRadar():
                 params=params,
             )
         except requests.exceptions.RequestException as e:
-            logd(str(e))
-            logd(e.response.text)
+            dlog(str(e))
+            dlog(e.response.text)
         return rule
 
     def create_note(self, offense, ticket):
@@ -171,8 +93,8 @@ class QRadar():
                 },
             )
         except requests.exceptions.RequestException as e:
-            logd(str(e))
-            logd(e.response.text)
+            dlog(str(e))
+            dlog(e.response.text)
 
 def default(obj):
     if isinstance(obj, datetime.datetime):
@@ -189,9 +111,9 @@ def testQradar(tID):
     qradar = QRadar(config["QRadar"])
 
     # QRadar Offenses
-    logd("\tConnecting to {:s} ...".format(config["QRadar"]["host"]))
+    dlog("\tConnecting to {:s} ...".format(config["QRadar"]["host"]))
     offenses = qradar.get_offenses()
-    logd("\t{:d} new offenses".format(len(offenses)))
+    dlog("\t{:d} new offenses".format(len(offenses)))
     if not offenses:
         return False
 
@@ -224,8 +146,8 @@ def testQradar(tID):
             qradar.create_note(offense["id"], tID)
         except requests.exceptions.RequestException as e:
             print(str(e))
-            logd(str(e))
-            logd(e.response.text)
+            dlog(str(e))
+            dlog(e.response.text)
 
 
 def testID(tID):
