@@ -157,14 +157,16 @@ def testID(tID):
     # QRadar:
     for i in range(1, MAX_TEST_QRADAR):
         rlog("d", tID, "Checking QRadar if Offense was created (Check ", i, "/", MAX_TEST_QRADAR, ")")
-        rlog("i", tID, "QRADAR Offense was created!")
+
         if(testQradar(tID)):
+            rlog("i", tID, "QRADAR Offense was created!")
             for j in range(1, MAX_TEST_OTRS):
                 rlog("d", tID, "Checking OTRS if Ticket was created (Check ", j, "/", MAX_TEST_OTRS)
                 # ...
             # TODO OTRS test failed
         else:
             dlog("Offense not yet crated.")
+            
         sleep(10)
     # TODO QRadar test failed.
  
