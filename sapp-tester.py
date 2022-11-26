@@ -38,6 +38,12 @@ def newTest():
     rlog("i", id, "Startet a new test just now. Test ID=", str(id))
     testID(id)
 
+def search(values, searchFor):
+    for k in values:
+        for v in values[k]:
+            if searchFor in v:
+                return k
+    return None
 class QRadar():
 
     def __init__(self, config):
@@ -165,20 +171,24 @@ def testQradar(tID):
 
     for offense in offenses:
         try:
-            dlog(offense)
+            #dlog(offense)
             notes = (qradar.get_notes(offense['id']))
-            dlog(notes)
+            #dlog(notes)
 
             # QRadar Tag and Note
             if offense["offense_source"] == str(tID):
                 rlog("d", tID, "[Check 1/x SUCCESS] QRADAR Offense was created.")
                 for i in range(1, MAX_TEST_OTRS):
                     rlog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket.")
+
                     if offense["follow_up"]:
-                        if "Ticket" in notes:
+                        if search(notes, "Ticket"):
                             qradar.create_note(offense["id"], tID)
                             qradar.set_closed(offense["id"])
                             return True
+                        else:
+                            rlog("d", tID, "Ticket not created in OTRS yet.")
+                            dlog("Notes: " , notes)
 
         except requests.exceptions.RequestException as e:
             print(str(e))
