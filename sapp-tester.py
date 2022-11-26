@@ -170,7 +170,6 @@ def testQradar(tID):
     for offense in offenses:
         try:
             #dlog(offense)
-            notes = (qradar.get_notes(offense['id']))
             #dlog(notes)
 
             # QRadar Tag and Note
@@ -180,6 +179,7 @@ def testQradar(tID):
                     rlog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket.")
 
                     if offense["follow_up"]:
+                        notes = (qradar.get_notes(offense['id']))
                         if search(notes, "Ticket"):
                             qradar.create_note(offense["id"], tID)
                             qradar.set_closed(offense["id"])
