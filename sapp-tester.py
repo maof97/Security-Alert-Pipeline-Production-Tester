@@ -165,8 +165,9 @@ def testQradar(tID):
 
     for offense in offenses:
         try:
-            print(offense)
+            dlog(offense)
             notes = (qradar.get_notes(offense['id']))
+            dlog(notes)
 
             # QRadar Tag and Note
             if offense["offense_source"] == str(tID):
@@ -178,14 +179,14 @@ def testQradar(tID):
                             qradar.create_note(offense["id"], tID)
                             qradar.set_closed(offense["id"])
                             return True
-            else:
-                dlog("\tOffense not yet crated.")
-                
-            return False
+
         except requests.exceptions.RequestException as e:
             print(str(e))
             dlog(str(e))
             dlog(e.response.text)
+    else:
+        dlog("\tOffense not yet crated.")        
+        return False
 
 
 def testID(tID):
