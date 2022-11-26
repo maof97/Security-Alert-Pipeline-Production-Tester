@@ -88,6 +88,7 @@ def logd(*msg): # Debug logging
         print(m, end='')
 
 def rlog(type, tID, *msg):
+    tID = str(tID)
     sl = ""
     for s in msg:
         sl += str(s) 
