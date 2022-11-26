@@ -53,10 +53,10 @@ def dlog(*msg): # Debug logging
         for s in msg:
             sl += str(s)
         logger.debug("[D] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
-    print()
     print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ', end='')
     for m in msg:
         print(m, end='')
+    print()
 
 def rlog(type, tID, *msg):
     tID = str(tID)

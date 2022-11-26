@@ -47,7 +47,7 @@ class QRadar():
         )
 
     def get_offenses(self, tID):
-        fields = ["id", "description", "start_time", "rules", "categories", "credibility", "device_count", "log_sources", "magnitude", "offense_source", "relevance", "severity"]
+        fields = ["id", "description", "start_time", "rules", "categories", "credibility", "device_count", "log_sources", "magnitude", "offense_source", "relevance", "severity", "follow_up"]
         params = {
             "fields": ",".join(fields),
             "filter": "status = OPEN",
@@ -62,8 +62,18 @@ class QRadar():
         except requests.exceptions.RequestException as e:
             rlog("e", "0", str(e))
             rlog("e", "0", e.response.text)
-            exit()
         return offenses
+
+    def get_notes(self, offense):
+        try:
+            x = self.client.request(
+                method="GET",
+                path="/api/siem/offenses/{:d}/notes".format(offense)
+            )
+            return x
+        except requests.exceptions.RequestException as e:
+            rlog("e", "0", str(e))
+            rlog("e", "0", e.response.text)
 
     def get_rule(self, rule):
         fields = ["name", "type", "origin"]
@@ -90,6 +100,20 @@ class QRadar():
                 params={
                     "fields": "",
                     "note_text": "Checked tID." + str(tID),
+                },
+            )
+        except requests.exceptions.RequestException as e:
+            rlog("e", "0", str(e))
+            rlog("e", "0", e.response.text)
+
+    def set_closed(self, offense):
+        try:
+            _ = self.client.request(
+                method="POST",
+                path="/api/siem/offenses/" + str(offense),
+                params={
+                    "fields": "",
+                    "closed": "true",
                 },
             )
         except requests.exceptions.RequestException as e:
@@ -141,10 +165,23 @@ def testQradar(tID):
 
     for offense in offenses:
         try:
+            print(offense)
+            notes = (qradar.get_notes(offense['id']))
+
             # QRadar Tag and Note
-            qradar.create_note(offense["id"], tID)
             if offense["offense_source"] == str(tID):
-                return True
+                rlog("d", tID, "[Check 1/x SUCCESS] QRADAR Offense was created.")
+                for i in range(1, MAX_TEST_OTRS):
+                    rlog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket.")
+                    if offense["follow_up"]:
+                        if "Ticket" in notes:
+                            qradar.create_note(offense["id"], tID)
+                            qradar.set_closed(offense["id"])
+                            return True
+            else:
+                dlog("\tOffense not yet crated.")
+                
+            return False
         except requests.exceptions.RequestException as e:
             print(str(e))
             dlog(str(e))
@@ -156,17 +193,12 @@ def testID(tID):
 
     # QRadar:
     for i in range(1, MAX_TEST_QRADAR):
-        rlog("d", tID, "Checking QRadar if Offense was created (Check ", i, "/", MAX_TEST_QRADAR, ")")
+        rlog("d", tID, "[Check 1/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking QRadar if Offense was created")
 
         if(testQradar(tID)):
-            rlog("i", tID, "QRADAR Offense was created!")
-            for j in range(1, MAX_TEST_OTRS):
-                rlog("d", tID, "Checking OTRS if Ticket was created (Check ", j, "/", MAX_TEST_OTRS)
-                # ...
+            rlog("i", tID, "[Check 2/x SUCCESS] OTRS Ticket was created.")
             # TODO OTRS test failed
-        else:
-            dlog("Offense not yet crated.")
-            
+
         sleep(10)
     # TODO QRadar test failed.
  
