@@ -46,7 +46,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '%(levelname)s %(module)s P%(process)d T%(thread)d %(message)s'
+            'format': '%(levelname)s SAPP-Test %(module)s P%(process)d  %(message)s'
             },
         },
     'handlers': {
@@ -95,13 +95,13 @@ def rlog(type, tID, *msg):
  
     if not OSX_LOCAL:  
         if type == 'i':
-            logger.info("[I] [" + tID + "]" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
+            logger.info("[I] [tID:" + tID + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
         if type == 'w':
-            logger.warning("[W] [" + tID + "]" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
+            logger.warning("[W] [tID:" + tID + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
         if type == 'e':
-            logger.error("[E] [" + tID + "]" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
+            logger.error("[E] [tID:" + tID + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
         if type == 'd':
-            logger.debug("[D] [" + tID + "]" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
+            logger.debug("[D] [tID:" + tID + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
     else:
         logd(*msg)
 
