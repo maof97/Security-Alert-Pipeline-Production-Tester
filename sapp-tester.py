@@ -76,7 +76,7 @@ def logm(*msg):
         print(m, end='')
 
     if not OSX_LOCAL:
-        logger.info(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(m))
+        logger.debug("[D] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(m))
 
 # #
 
