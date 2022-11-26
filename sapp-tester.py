@@ -24,7 +24,7 @@ if OSX_LOCAL_S == "True":
     OSX_LOCAL = True
 else:
     OSX_LOCAL = False
-    
+
 MAX_TEST_QRADAR = 50 # 10 second wait for every round
 MAX_TEST_OTRS = 50
 
@@ -75,13 +75,13 @@ if OSX_LOCAL:
     print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | OSX Run: Skipping Syslog logging.")
 
 def logm(*msg):
-    print()
-    print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ', end='')
-    for m in msg:
-        print(m, end='')
-
     if not OSX_LOCAL:
         logger.debug("[D] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(m))
+    else:
+        print()
+        print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ', end='')
+        for m in msg:
+            print(m, end='')
 
 # #
 
