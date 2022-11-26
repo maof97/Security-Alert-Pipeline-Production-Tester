@@ -25,6 +25,7 @@ if OSX_LOCAL_S == "True":
 else:
     OSX_LOCAL = False
 
+DEBUG_TO_SYSLOG = False
 MAX_TEST_QRADAR = 50 # 10 second wait for every round
 MAX_TEST_OTRS = 50
 
@@ -34,7 +35,8 @@ parser.add_argument('--test-id', type=int)
 parser.add_argument('--new-test', action='store_true')
 args = parser.parse_args()
 
-# Syslog
+
+# Config Logging #
 
 import logging, sys
 from logging import config
@@ -74,26 +76,43 @@ logger = logging.getLogger("my-logger")
 if OSX_LOCAL:
     print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " | OSX Run: Skipping Syslog logging.")
 
-def logm(*msg):
-    if not OSX_LOCAL:
+def logd(*msg): # Debug logging
+    if not OSX_LOCAL and DEBUG_TO_SYSLOG:
+        sl = ""
         for s in msg:
-            sl += s
+            sl += str(s)
         logger.debug("[D] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
-    else:
-        print()
-        print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ', end='')
-        for m in msg:
-            print(m, end='')
+    print()
+    print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ', end='')
+    for m in msg:
+        print(m, end='')
 
-# #
+def rlog(type, tID, *msg):
+    sl = ""
+    for s in msg:
+        sl += str(s) 
+ 
+    if not OSX_LOCAL:  
+        if type == 'i':
+            logger.info("[I] [" + tID + "]" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
+        if type == 'w':
+            logger.warning("[W] [" + tID + "]" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
+        if type == 'e':
+            logger.error("[E] [" + tID + "]" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
+        if type == 'd':
+            logger.debug("[D] [" + tID + "]" + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
+    else:
+        logd(*msg)
+
+# End logging config #
+
 
 def newTest():
-    logm("Will start a new Test...")
+    logd("Will start a new Test...")
     id = random.randint(0,99999999)
-    line=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' + "SAPP-Test. ID='"+str(id)+"'"
-    with open('sapp-test.log', 'a') as file:
-        file.write(line+'\n')
-        logm("Logged new ID to syslog file: \t", line)
+    line="SAPP-Test Initiator QUEBEC. ID='"+str(id)+"'"
+    rlog("i", id, line)
+    rlog("i", id, "Startet a new test just now. Test ID=", str(id))
     testID(id)
 
 class QRadar():
@@ -119,8 +138,8 @@ class QRadar():
             )
         except requests.exceptions.RequestException as e:
             print(str(e))
-            logm(str(e))
-            logm(e.response.text)
+            logd(str(e))
+            logd(e.response.text)
             exit()
         return offenses
 
@@ -136,8 +155,8 @@ class QRadar():
                 params=params,
             )
         except requests.exceptions.RequestException as e:
-            logm(str(e))
-            logm(e.response.text)
+            logd(str(e))
+            logd(e.response.text)
         return rule
 
     def create_note(self, offense, ticket):
@@ -151,8 +170,8 @@ class QRadar():
                 },
             )
         except requests.exceptions.RequestException as e:
-            logm(str(e))
-            logm(e.response.text)
+            logd(str(e))
+            logd(e.response.text)
 
 def default(obj):
     if isinstance(obj, datetime.datetime):
@@ -169,9 +188,9 @@ def testQradar(tID):
     qradar = QRadar(config["QRadar"])
 
     # QRadar Offenses
-    logm("\tConnecting to {:s} ...".format(config["QRadar"]["host"]))
+    logd("\tConnecting to {:s} ...".format(config["QRadar"]["host"]))
     offenses = qradar.get_offenses()
-    logm("\t{:d} new offenses".format(len(offenses)))
+    logd("\t{:d} new offenses".format(len(offenses)))
     if not offenses:
         return False
 
@@ -204,19 +223,20 @@ def testQradar(tID):
             qradar.create_note(offense["id"], tID)
         except requests.exceptions.RequestException as e:
             print(str(e))
-            logm(str(e))
-            logm(e.response.text)
+            logd(str(e))
+            logd(e.response.text)
 
 
 def testID(tID):
-    logm("Starting the production test for ID ", tID, "...")
+    rlog("i", tID, "Starting the production test for ID ", tID, "...")
 
     # QRadar:
     for i in range(1, MAX_TEST_QRADAR):
-        logm("Checking QRadar if Offense was created (Check ", i, "/", MAX_TEST_QRADAR)
+        rlog("d", tID, "Checking QRadar if Offense was created (Check ", i, "/", MAX_TEST_QRADAR, ")")
+
         if(testQradar(tID)):
             for j in range(1, MAX_TEST_OTRS):
-                logm("Checking OTRS if Ticket was created (Check ", j, "/", MAX_TEST_OTRS)
+                rlog("d", tID, "Checking OTRS if Ticket was created (Check ", j, "/", MAX_TEST_OTRS)
                 # ...
             # TODO OTRS test failed
         sleep(10)
