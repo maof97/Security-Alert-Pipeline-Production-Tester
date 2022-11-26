@@ -33,7 +33,7 @@ args = parser.parse_args()
 def newTest():
     dlog("Will start a new Test...")
     id = random.randint(0,99999999)
-    line="SAPP-Test Initiator QUEBEC. ID='"+str(id)+"'"
+    line="SAPP-Test Initiator is True . Keyword=QUEBEC. ID='"+str(id)+"'"
     rlog("i", id, line)
     rlog("i", id, "Startet a new test just now. Test ID=", str(id))
     testID(id)
