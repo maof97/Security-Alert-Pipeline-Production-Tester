@@ -18,7 +18,6 @@ from distutils import util
 
 from logging_helper import slog
 from logging_helper import dlog
-from logging_helper import rlog
 
 import re
 
@@ -35,7 +34,7 @@ OTRS_USER_PW = os.environ['OTRS_USER_PW']
 
 # Instantiate the tester...
 parser = argparse.ArgumentParser(description='SAPP-Tester')
-parser.add_argument('id', type=int)
+parser.add_argument('--id', type=int)
 parser.add_argument('--new-test', action='store_true')
 args = parser.parse_args()
 
