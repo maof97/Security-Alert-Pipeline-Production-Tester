@@ -221,7 +221,7 @@ def testQradar(tID, reCheck):
 
     if not reCheck:
         dlog("\tOffense not yet crated.")
-        return 0
+        return 0, ""
 
 
 def testOTRS(tID, ticketNumber):
