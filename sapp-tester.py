@@ -34,8 +34,9 @@ MAX_TEST_MATRIX = 20
 
 OTRS_URL = "http://10.20.1.9"+"/otrs/nph-genericinterface.pl/Webservice/ALERTELAST_API"
 OTRS_USER_PW = os.environ['OTRS_USER_PW']
-MATRIX_ROOM_ID = os.environ['MATRIX_ROOM_ID']
 MATRIX_BOT_ACCESS_TOKEN = os.environ['MATRIX_BOT_ACCESS_TOKEN']
+MATRIX_ROOM_ID = "%21qyLpnAmwoEvfFzbSgt:matrix.fulminata.eu"
+MATRIX_ROOM_ID_ALERT = "%21SbWTygdrNwJUMIinGD%3Amatrix.fulminata.eu"
 
 # Instantiate the tester...
 parser = argparse.ArgumentParser(description='SAPP-Tester')
@@ -216,7 +217,7 @@ def testQradar(tID, reCheck):
                     else:
                         slog("d", tID, "Ticket not created in OTRS yet.")
                         dlog("Notes: " , notes)
-                    sleep(10)
+                    
 
         except requests.exceptions.RequestException as e:
             print(str(e))
@@ -257,10 +258,44 @@ def testOTRS(tID, ticketNumber):
                         return True
                 #sleep(5) TODO REANABLE SLEEP
             slog("i", tID, "[Quality Check FAILED] Ticket contains no enrichment data from VT (tried "+str(MAX_TEST_OTRS -  i)+" times).") 
+            sendWarning(tID, -1)
             return True # Return true, even if Quality Check failed, as it is not critical.
 
         sleep(10)
     return False
+
+
+
+
+
+def sendWarning(tID, level):
+    try:
+        req_url = "https://matrix.fulminata.eu/_matrix/client/r0/rooms/"+MATRIX_ROOM_ID_ALERT+"/send/m.room.message?access_token="+MATRIX_BOT_ACCESS_TOKEN
+        #AT_PERSON = "@martin "
+        msg = ""
+
+        if level == 4:
+            msg = "ℹ️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 4/4 (Check Matrix)] Please check Matrix."
+        if level == 3:
+            msg = "ℹ️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 3/4 (Check OTRS Ticket)] Please check OTRS."
+        if level == 2:
+            msg = "⚠️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 2/4 (Check if Offense generated OTRS Ticket)] Please check OTRS-API-ORCHESTRATOR for errors or warnings."
+        if level == 1 and tID.startswith("Q"):
+            msg = "❗️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 1/4 (Check if QRadar generated Offense)] Please check QRadar!"
+        elif level == 1 and tID.startswith("K"):
+            msg = "❗️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 1/4 (Check if Kibana generated alert)] Please check Kibana!"
+        if level <= 0:
+            msg = "❗️❗️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed before Check 1/4] Check if SAPP-Tester itself works correctly!"
+
+        msg=msg+" | tID: "+tID
+        d = {"msgtype":"m.text", "body":msg}
+        res = requests.post(req_url, json=d, verify=False)
+        if(str(res.status_code) != '200'):
+            print("[WARNING] Could not send Matrix Alert in Alert_Ticket() -> Reponse not OK (200)")
+            print(res.json())
+    except:
+        pass    
+
 
 
 
@@ -320,9 +355,11 @@ def continuePipeline(tID, ticketNumber):
             sys.exit()
         else:
             slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed at Matrix check!")
+            sendWarning(tID, 4)
             raise SystemExit('Exiting program (-1)')
     else:
         slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed at OTRS check!")
+        sendWarning(tID, 3)
         raise SystemExit('Exiting program (-1)')
     sleep(10)
 
@@ -345,9 +382,13 @@ def testID(tID):
                     status, ticketNumber = testQradar(tID, True)
                     if status == 2:
                         continuePipeline(tID, ticketNumber)
-
+                    sleep(10)
+                slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed for QRADAR <-> OTRS check!")
+                sendWarning(tID, 2)
             sleep(10)
+
         slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed for QRadar check!")
+        sendWarning(tID, 1)
 
     elif tID.startswith('Q'):
         slog("i", tID, "Starting the production test with startpoint 'Kibana' with ID ", tID, "...")
@@ -363,3 +404,6 @@ elif args.id.startswith("Q") or args.id.startswith("K"):
     testID(args.id)
 else:
     slog("e", str(args.id), "Couldn't start SAPP-Tester. Invalid ID.")
+
+# */15 * * * * bash -c "if [ $(expr $RANDOM % 8) -eq 0 ]; then /usr/bin/python3 /root/Security-Alert-Pipeline-Production-Tester/sapp-tester.py --new-test --qradar-only; fi"
+# */5 * * * * bash -c "if [ $(expr $RANDOM % 1) -eq 0 ]; then /usr/bin/python3 /root/Security-Alert-Pipeline-Production-Tester/sapp-tester.py --new-test --qradar-only; fi"

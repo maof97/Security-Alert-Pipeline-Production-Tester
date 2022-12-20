@@ -13,7 +13,7 @@ import os
 # CONSTANTS
 OSX_LOCAL_S = os.environ['OSX_LOCAL']
 DEBUG_TO_SYSLOG = False
-PROTOCOL_PATH = "SAPP_Reports/"
+PROTOCOL_PATH = "/var/log/SAPP_Reports/"
 
 if OSX_LOCAL_S == "True":
     OSX_LOCAL = True
