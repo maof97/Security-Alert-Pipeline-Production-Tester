@@ -159,7 +159,7 @@ def default(obj):
     raise TypeError
 
 
-def testQradar(tID):
+def testQradar(tID, reCheck):
     requests.packages.urllib3.disable_warnings()
 
     # settings
@@ -191,11 +191,14 @@ def testQradar(tID):
 
             # QRadar Tags and Note 
             if offense["offense_source"] == str(tID):
-                slog("d", tID, "[Check 1/x SUCCESS] QRADAR Offense was created.")
-                for i in range(1, MAX_TEST_OTRS):
-                    slog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket...")
-                    
+                if not reCheck:
+                    slog("d", tID, "[Check 1/x SUCCESS] QRADAR Offense was created.")
+                    # Return to Re-Check if note is in offense now.        
+                    return 1, ""
+                else:
+                    # Re-Fetch Offense for updates
                     notes = (qradar.get_notes(offense['id']))
+
                     if offense["follow_up"]:
                         dlog("Notes: " , notes)
 
@@ -206,7 +209,7 @@ def testQradar(tID):
                                     # Closing dummy offense
                                     if not (qradar.create_note(offense["id"], tID) and qradar.set_closed(offense["id"], tID)):
                                         slog("w", tID, "Failed to close dummy offense.")
-                                    return True, ticketID
+                                    return 2, ticketID
                     else:
                         slog("d", tID, "Ticket not created in OTRS yet.")
                         dlog("Notes: " , notes)
@@ -216,8 +219,9 @@ def testQradar(tID):
             print(str(e))
             dlog(str(e))
 
-    dlog("\tOffense not yet crated.")        
-    return False, ""
+    if not reCheck:
+        dlog("\tOffense not yet crated.")
+        return 0
 
 
 def testOTRS(tID, ticketNumber):
@@ -280,11 +284,19 @@ def testID(tID):
 
     if tID.startswith('Q'):
         slog("i", tID, "Starting the production test with startpoint 'QRadar' with ID ", tID, "...")
+        reChek = False
         for i in range(1, MAX_TEST_QRADAR):
             slog("d", tID, "[Check 1/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if QRadar is reachable and if Offense was created...")
-            done, ticketNumber = testQradar(tID)
-            if done:
-                continuePipeline(tID, ticketNumber)
+
+            status, ticketNumber = testQradar(tID, False)
+            
+            if status == 1:
+                for i in range(1, MAX_TEST_OTRS):
+                    slog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket...")
+                    status, ticketNumber = testQradar(tID, True)
+                    if status == 2:
+                        continuePipeline(tID, ticketNumber)
+
             sleep(10)
         slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed for QRadar check!")
 
