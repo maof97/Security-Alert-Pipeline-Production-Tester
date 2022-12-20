@@ -46,11 +46,11 @@ args = parser.parse_args()
 def newTest():
     dlog("Will start a new Test...")
     id = random.randint(0,99999999)
-    if args.qradar-only or (not args.kibana-only):
+    if args.qradar_only or (not args.kibana_only):
         id = "Q"+str(id)
         slog("i", id, "Starting a new test with QRadar as starting point: SAPP-Test Initiator is True . Test-IP:'123.123.123.123' Keyword=QUEBEC. Test ID=", str(id))
         testID(id)
-    if args.kibana-only or (not args.qradar-only):
+    if args.kibana_only or (not args.qradar_only):
         id = "K"+str(id)
         slog("i", id, "Starting a new test with Kibana as starting point. Test ID=", str(id))
         # ...
