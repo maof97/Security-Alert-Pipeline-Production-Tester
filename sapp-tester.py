@@ -30,9 +30,12 @@ import sys
 # CONSTANTS
 MAX_TEST_QRADAR = 500 # 10 second wait for every round
 MAX_TEST_OTRS = 50
+MAX_TEST_MATRIX = 20
 
 OTRS_URL = "http://10.20.1.9"+"/otrs/nph-genericinterface.pl/Webservice/ALERTELAST_API"
 OTRS_USER_PW = os.environ['OTRS_USER_PW']
+MATRIX_ROOM_ID = os.environ['MATRIX_ROOM_ID']
+MATRIX_BOT_ACCESS_TOKEN = os.environ['MATRIX_BOT_ACCESS_TOKEN']
 
 # Instantiate the tester...
 parser = argparse.ArgumentParser(description='SAPP-Tester')
@@ -192,7 +195,7 @@ def testQradar(tID, reCheck):
             # QRadar Tags and Note 
             if offense["offense_source"] == str(tID):
                 if not reCheck:
-                    slog("d", tID, "[Check 1/x SUCCESS] QRADAR Offense was created.")
+                    slog("d", tID, "[Check 1/4 SUCCESS] QRADAR Offense was created.")
                     # Return to Re-Check if note is in offense now.        
                     return 1, ""
                 else:
@@ -228,7 +231,7 @@ def testQradar(tID, reCheck):
 
 def testOTRS(tID, ticketNumber):
     for i in range(1, MAX_TEST_OTRS): 
-        slog("d", tID, "[Check 3/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if OTRS is reachable and ticket exists...")
+        slog("d", tID, "[Check 3/4 | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if OTRS is reachable and ticket exists...")
         dlog("\tConnecting to OTRS...")
         # ...
         client = Client(OTRS_URL,"SIEMUser",OTRS_USER_PW)
@@ -238,12 +241,13 @@ def testOTRS(tID, ticketNumber):
 
         if str(tID) in ticketTitle:
             dlog("\tFound ticket with correct tID: ", ticketTitle)
-            slog("i", tID, "[Check 3/x SUCCESS] OTRS reachable and Ticket exists.") 
+            slog("i", tID, "[Check 3/4 SUCCESS] OTRS reachable and Ticket exists.") 
 
             # Checking if VT result is in ticket
             MAX_TEST_OTRS_QC = MAX_TEST_OTRS - i
             for j in range(1, MAX_TEST_OTRS_QC):
                 slog("d", tID, "[Quality Check | Attempt ", j, "/", MAX_TEST_OTRS_QC,"] Checking if ticket contains ticket enrichtment (VT)...")
+                # ticket = client.ticket_get_by_number(ticketNumber,articles=True)  TODO REANABLE 
                 ticketDict = ticket.to_dct()
                 articleArray = ticketDict['Ticket']['Article']
 
@@ -251,7 +255,7 @@ def testOTRS(tID, ticketNumber):
                     if "API" in articleArray[i]["From"] and ("VirusTotal Scan Result for IP" in articleArray[i]["Subject"]):
                         slog("i", tID, "[Quality Check SUCCESS] Ticket contains enrichment data from VT.") 
                         return True
-                sleep(5)
+                #sleep(5) TODO REANABLE SLEEP
             slog("i", tID, "[Quality Check FAILED] Ticket contains no enrichment data from VT (tried "+str(MAX_TEST_OTRS -  i)+" times).") 
             return True # Return true, even if Quality Check failed, as it is not critical.
 
@@ -259,11 +263,50 @@ def testOTRS(tID, ticketNumber):
     return False
 
 
-def testMatrix(tID, ticketNumber):
-    pass
+
+
+def testMatrix(tID, ticketNumber): 
+    # Set the access token for the user "siem_bot"
+    access_token = MATRIX_BOT_ACCESS_TOKEN
+    # Set the room ID for the room that you want to retrieve messages from
+    room_id = MATRIX_ROOM_ID
+
+    # Set the authorization header
+    headers = {"Authorization": f"Bearer {MATRIX_BOT_ACCESS_TOKEN}"}
+
+    # Make the request to the API
+    url = "https://matrix.fulminata.eu/_matrix/client/r0/sync?filter=0&timeout=0&since=s25625_170248_3004_30386_18828_15_3972_204_0&rooms=={{{room_id}}}"
+
+    for i in range(1, MAX_TEST_MATRIX):
+        slog("d", tID, "[Check 4/4 | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if alert message was send to Matrix...")
+        response = requests.get(url, headers=headers)
+
+        # Check the status code of the response
+        if response.status_code == 200:
+            # Parse the response body as a JSON object
+            response_data = json.loads(response.content)
+            # Extract the messages from the response data
+            messages = [event["content"]["body"] for event in response_data["rooms"]["join"]["!qyLpnAmwoEvfFzbSgt:matrix.fulminata.eu"]["timeline"]["events"]]
+            # Print the messages
+            dlog("\tLast Matrix Messages: ", messages)
+
+            # Search the messages for the string "ABC"
+            if str(ticketNumber) in messages:
+                slog("i", tID, "[Check 4/4 SUCCESS] Alert message was sent to matrix.")
+            else:
+                dlog("\tMessage not found yet.")
+
+        else:
+            # Print the error message
+            slog("w", tID, "Error, got error message in reponse from Matrix:")
+            slog("w", tID, f"Error {response.status_code}: {response.text}")
+        sleep(5)
+
+
+
 
 def continuePipeline(tID, ticketNumber):
-    slog("i", tID, "[Check 2/x SUCCESS] OTRS Ticket was created. OTRS Ticket#", ticketNumber)
+    slog("i", tID, "[Check 2/4 SUCCESS] OTRS Ticket was created. OTRS Ticket#", ticketNumber)
             
     # OTRS Checks
     if(testOTRS(tID, ticketNumber)): 
@@ -288,13 +331,13 @@ def testID(tID):
         slog("i", tID, "Starting the production test with startpoint 'QRadar' with ID ", tID, "...")
         reChek = False
         for i in range(1, MAX_TEST_QRADAR):
-            slog("d", tID, "[Check 1/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if QRadar is reachable and if Offense was created...")
+            slog("d", tID, "[Check 1/4 | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if QRadar is reachable and if Offense was created...")
 
             status, ticketNumber = testQradar(tID, False)
             
             if status == 1:
                 for i in range(1, MAX_TEST_OTRS):
-                    slog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket...")
+                    slog("d", tID, "[Check 2/4 | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket...")
                     status, ticketNumber = testQradar(tID, True)
                     if status == 2:
                         continuePipeline(tID, ticketNumber)
