@@ -32,11 +32,19 @@ MAX_TEST_QRADAR = 500 # 10 second wait for every round
 MAX_TEST_OTRS = 50
 MAX_TEST_MATRIX = 20
 
+CONFIG_PATH = '/root/Security-Alert-Pipeline-Production-Tester/config.json'
 OTRS_URL = "http://10.20.1.9"+"/otrs/nph-genericinterface.pl/Webservice/ALERTELAST_API"
 OTRS_USER_PW = os.environ['OTRS_USER_PW']
 MATRIX_BOT_ACCESS_TOKEN = os.environ['MATRIX_BOT_ACCESS_TOKEN']
 MATRIX_ROOM_ID = "%21qyLpnAmwoEvfFzbSgt:matrix.fulminata.eu"
 MATRIX_ROOM_ID_ALERT = "%21SbWTygdrNwJUMIinGD%3Amatrix.fulminata.eu"
+
+try:
+    if os.environ['OSX_LOCAL'] == "True":
+        CONFIG_PATH = 'config.json'
+except:
+    pass
+
 
 # Instantiate the tester...
 parser = argparse.ArgumentParser(description='SAPP-Tester')
@@ -167,7 +175,7 @@ def testQradar(tID, reCheck):
     requests.packages.urllib3.disable_warnings()
 
     # settings
-    config = json.load(open('config.json'))
+    config = json.load(open(CONFIG_PATH))
 
     qradar = QRadar(config["QRadar"])
 
