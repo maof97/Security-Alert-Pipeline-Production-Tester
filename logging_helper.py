@@ -60,7 +60,7 @@ def dlog(*msg): # Debug logging
     sl = ""
     for s in msg:
         sl += str(s)
-    rlog(0, 'd2', str(sl))
+    rlog('d2', 0, str(sl))
     
     if not OSX_LOCAL and DEBUG_TO_SYSLOG:
         logger.debug("[D] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
@@ -85,9 +85,9 @@ def slog(type, id, *msg):
             logger.error("[E] [id:" + id + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
         if type == 'd':
             logger.debug("[D] [id:" + id + "] " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' | ' +  str(sl))
-        rlog(id, type, str(sl))
     else:
         dlog(*msg)
+    rlog(type, id, str(sl))
 
 def rlog(type, id, *msg):
 
@@ -110,6 +110,6 @@ def rlog(type, id, *msg):
         #pf.write("")
 
 # Testing
-dlog("Logging local debug test.")
-slog(0, "Logging syslog test.")
-rlog(0, "Logging report test.")
+#dlog("Logging local debug test.")
+#slog(0, "Logging syslog test.")
+#rlog(0, "Logging report test.")

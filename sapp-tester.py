@@ -177,10 +177,10 @@ def testQradar(tID):
             if offense["offense_source"] == str(tID):
                 slog("d", tID, "[Check 1/x SUCCESS] QRADAR Offense was created.")
                 for i in range(1, MAX_TEST_OTRS):
-                    slog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket.")
+                    slog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket...")
                     
+                    notes = (qradar.get_notes(offense['id']))
                     if offense["follow_up"]:
-                        notes = (qradar.get_notes(offense['id']))
                         dlog("Notes: " , notes)
 
                         for note in notes:
@@ -203,42 +203,53 @@ def testQradar(tID):
     return False, ""
 
 
-def testOTRS(tID, ticketID):
+def testOTRS(tID, ticketNumber):
     for i in range(1, MAX_TEST_OTRS): 
-        slog("d", tID, "[Check 3/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if OTRS ticket has been auto-closed by Alerter.")
+        slog("d", tID, "[Check 3/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if OTRS is reachable and ticket exists...")
         dlog("\tConnecting to OTRS...")
         # ...
         client = Client(OTRS_URL,"SIEMUser",OTRS_USER_PW)
-        client.session_create()
-        lastDay = datetime.utcnow() - timedelta(minutes=1)
-        newTickets = client.ticket_search(TicketCreateTimeNewerDate=lastDay, StateType=['new'])
+        client.session_restore_or_create()
+        ticket = client.ticket_get_by_number(ticketNumber,articles=True)
+        ticketTitle = ticket.field_get("Title")
 
-        for ticketID in newTickets:
-    
-            ticket = client.ticket_get_by_id(ticketID,articles=True)
-            ticketNumber = ticket.field_get("TicketNumber")
-            ticketTitle = ticket.field_get("Title")
+        if str(tID) in ticketTitle:
+            dlog("\tFound ticket with correct tID: ", ticketTitle)
+            slog("i", tID, "[Check 3/x SUCCESS] OTRS reachable and Ticket exists.") 
 
-            if str(tID) in ticketTitle:
-                dlog("\tFound ticket with correct tID: ", ticketTitle)
+            # Checking if VT result is in ticket
+            MAX_TEST_OTRS_QC = MAX_TEST_OTRS - i
+            for j in range(1, MAX_TEST_OTRS_QC):
+                slog("d", tID, "[Quality Check | Attempt ", j, "/", MAX_TEST_OTRS_QC,"] Checking if ticket contains ticket enrichtment (VT)...")
                 ticketDict = ticket.to_dct()
                 articleArray = ticketDict['Ticket']['Article']
+
+                for i in range(len(articleArray)):
+                    if "API" in articleArray[i]["From"] and ("VirusTotal Scan Result for IP" in articleArray[i]["Subject"]):
+                        slog("i", tID, "[Quality Check SUCCESS] Ticket contains enrichment data from VT.") 
+                        return True
+                sleep(5)
+            slog("i", tID, "[Quality Check FAILED] Ticket contains no enrichment data from VT (tried "+str(MAX_TEST_OTRS -  i)+" times).") 
+            return True # Return true, even if Quality Check failed, as it is not critical.
+
+
+
         sleep(10)
 
 def testID(tID):
     slog("i", tID, "Starting the production test for ID ", tID, "...")
 
-    # QRadar:
+    # QRadar Checks:
     for i in range(1, MAX_TEST_QRADAR):
-        slog("d", tID, "[Check 1/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking QRadar if Offense was created")
+        slog("d", tID, "[Check 1/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if QRadar is reachable and if Offense was created...")
 
         done, ticketID = testQradar(tID)
         if done:
-            if i >= 3:
-                slog('i', tID, "Check 1/x (Check QRadar if Offense was created) - Needed " +i+ " attempts, but succeeded.")
-
-            if(testOTRS(tID, ticketID)):
-                slog("i", tID, "[Check 2/x SUCCESS] OTRS Ticket was created. OTRS Ticket#", ticketID)
+            slog("i", tID, "[Check 2/x SUCCESS] OTRS Ticket was created. OTRS Ticket#", ticketID)
+            
+            # OTRS Checks
+            if(testOTRS(tID, ticketID)): 
+                pass
         sleep(10)
     # TODO QRadar test failed.
     slog('w', tID, "Check 1/x (Check QRadar if Offense was created) - Tried " +i+ " attempts, but failed.")
