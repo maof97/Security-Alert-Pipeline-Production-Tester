@@ -16,24 +16,33 @@ import qradar_helper
 import os
 from distutils import util
 
-from logging_helper import rlog
+from logging_helper import slog
 from logging_helper import dlog
+from logging_helper import rlog
+
+import re
+
+from pyotrs import Client
+from pyotrs.lib import Article, Ticket
+from datetime import timedelta
 
 # CONSTANTS
 MAX_TEST_QRADAR = 500 # 10 second wait for every round
 MAX_TEST_OTRS = 50
 
+OTRS_URL = "http://10.20.1.9"+"/otrs/nph-genericinterface.pl/Webservice/ALERTELAST_API"
+OTRS_USER_PW = os.environ['OTRS_USER_PW']
+
 # Instantiate the tester...
 parser = argparse.ArgumentParser(description='SAPP-Tester')
-parser.add_argument('--test-id', type=int)
+parser.add_argument('id', type=int)
 parser.add_argument('--new-test', action='store_true')
 args = parser.parse_args()
-
 
 def newTest():
     dlog("Will start a new Test...")
     id = random.randint(0,99999999)
-    rlog("i", id, "Starting a new test now: SAPP-Test Initiator is True . Keyword=QUEBEC. Test ID=", str(id))
+    slog("i", id, "Starting a new test now: SAPP-Test Initiator is True . Test-IP:'123.123.123.123' Keyword=QUEBEC. Test ID=", str(id))
     testID(id)
 
 def search(values, searchFor):
@@ -64,8 +73,12 @@ class QRadar():
                 params=params,
             )
         except requests.exceptions.RequestException as e:
-            rlog("e", "0", str(e))
-            rlog("e", "0", e.response.text)
+            slog("e", "0", str(e))
+            try:
+                slog("e", "0", e.response.text)
+            except:
+                pass
+            return False
         return offenses
 
     def get_notes(self, offense):
@@ -76,8 +89,8 @@ class QRadar():
             )
             return x
         except requests.exceptions.RequestException as e:
-            rlog("e", "0", str(e))
-            rlog("e", "0", e.response.text)
+            slog("e", "0", str(e))
+            slog("e", "0", e.response.text)
 
     def get_rule(self, rule):
         fields = ["name", "type", "origin"]
@@ -91,8 +104,8 @@ class QRadar():
                 params=params,
             )
         except requests.exceptions.RequestException as e:
-            rlog("e", "0", str(e))
-            rlog("e", "0", e.response.text)
+            slog("e", "0", str(e))
+            slog("e", "0", e.response.text)
         return rule
 
 
@@ -107,8 +120,8 @@ class QRadar():
                 },
             )
         except requests.exceptions.RequestException as e:
-            rlog("e", "0", str(e))
-            rlog("e", "0", e.response.text)
+            slog("e", "0", str(e))
+            slog("e", "0", e.response.text)
 
     def set_closed(self, offense):
         try:
@@ -117,12 +130,13 @@ class QRadar():
                 path="/api/siem/offenses/" + str(offense),
                 params={
                     "fields": "",
-                    "closed": "true",
+                    "status": "closed",
+                    "closing_reason_id": 1
                 },
             )
         except requests.exceptions.RequestException as e:
-            rlog("e", "0", str(e))
-            rlog("e", "0", e.response.text)
+            slog("e", "0", str(e))
+            slog("e", "0", e.response.text)
 
 def default(obj):
     if isinstance(obj, datetime.datetime):
@@ -141,24 +155,12 @@ def testQradar(tID):
     # QRadar Offenses
     dlog("\tConnecting to {:s} ...".format(config["QRadar"]["host"]))
     offenses = qradar.get_offenses(tID)
+    if offenses == False:
+        return False, ""
     dlog("\t{:d} new offenses".format(len(offenses)))
     if not offenses:
         return False
 
-    # QRadar Rules
-    rules = {}
-    for offense in offenses:
-        for rule in offense["rules"]:
-            rules[rule["id"]] = {}
-    for rule_id in rules.keys():
-        rules[rule_id] = qradar.get_rule(rule_id)
-    for offense in offenses:
-        for i in range(len(offense["rules"])):
-            offense["rules"][i] = rules[offense["rules"][i]["id"]]
-        offense["start_time"] = datetime.datetime.fromtimestamp(
-            offense["start_time"]/1000,
-            tz=dateutil.tz.gettz("Europe/Berlin"),
-        )
 
     # Link to offense
     for offense in offenses:
@@ -172,49 +174,79 @@ def testQradar(tID):
             #dlog(offense)
             #dlog(notes)
 
-            # QRadar Tag and Note
+            # QRadar Tags and Note 
             if offense["offense_source"] == str(tID):
-                rlog("d", tID, "[Check 1/x SUCCESS] QRADAR Offense was created.")
+                slog("d", tID, "[Check 1/x SUCCESS] QRADAR Offense was created.")
                 for i in range(1, MAX_TEST_OTRS):
-                    rlog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket.")
-
+                    slog("d", tID, "[Check 2/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if Alerter has seen the offense and created a ticket.")
+                    
                     if offense["follow_up"]:
                         notes = (qradar.get_notes(offense['id']))
-                        if search(notes, "Ticket"):
-                            qradar.create_note(offense["id"], tID)
-                            qradar.set_closed(offense["id"])
-                            return True
-                        else:
-                            rlog("d", tID, "Ticket not created in OTRS yet.")
-                            dlog("Notes: " , notes)
+                        dlog("Notes: " , notes)
+
+                        for note in notes:
+                            if "Ticket" in note["note_text"]:
+                                qradar.create_note(offense["id"], tID)
+                                qradar.set_closed(offense["id"])
+                                ticketID = re.findall(r'\d+', note["note_text"])[0]
+                                if int(ticketID) > 0:
+                                    return True, ticketID
+                    else:
+                        slog("d", tID, "Ticket not created in OTRS yet.")
+                        dlog("Notes: " , notes)
                     sleep(10)
 
         except requests.exceptions.RequestException as e:
             print(str(e))
             dlog(str(e))
-            dlog(e.response.text)
-    else:
-        dlog("\tOffense not yet crated.")        
-        return False
 
+    dlog("\tOffense not yet crated.")        
+    return False, ""
+
+
+def testOTRS(tID, ticketID):
+    for i in range(1, MAX_TEST_OTRS): 
+        slog("d", tID, "[Check 3/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if OTRS ticket has been auto-closed by Alerter.")
+        dlog("\tConnecting to OTRS...")
+        # ...
+        client = Client(OTRS_URL,"SIEMUser",OTRS_USER_PW)
+        client.session_create()
+        lastDay = datetime.utcnow() - timedelta(minutes=1)
+        newTickets = client.ticket_search(TicketCreateTimeNewerDate=lastDay, StateType=['new'])
+
+        for ticketID in newTickets:
+    
+            ticket = client.ticket_get_by_id(ticketID,articles=True)
+            ticketNumber = ticket.field_get("TicketNumber")
+            ticketTitle = ticket.field_get("Title")
+
+            if str(tID) in ticketTitle:
+                dlog("\tFound ticket with correct tID: ", ticketTitle)
+                ticketDict = ticket.to_dct()
+                articleArray = ticketDict['Ticket']['Article']
+        sleep(10)
 
 def testID(tID):
-    rlog("i", tID, "Starting the production test for ID ", tID, "...")
+    slog("i", tID, "Starting the production test for ID ", tID, "...")
 
     # QRadar:
     for i in range(1, MAX_TEST_QRADAR):
-        rlog("d", tID, "[Check 1/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking QRadar if Offense was created")
+        slog("d", tID, "[Check 1/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking QRadar if Offense was created")
 
-        if(testQradar(tID)):
-            rlog("i", tID, "[Check 2/x SUCCESS] OTRS Ticket was created.")
-            # TODO OTRS test failed
+        done, ticketID = testQradar(tID)
+        if done:
+            if i >= 3:
+                slog('i', tID, "Check 1/x (Check QRadar if Offense was created) - Needed " +i+ " attempts, but succeeded.")
 
+            if(testOTRS(tID, ticketID)):
+                slog("i", tID, "[Check 2/x SUCCESS] OTRS Ticket was created. OTRS Ticket#", ticketID)
         sleep(10)
     # TODO QRadar test failed.
+    slog('w', tID, "Check 1/x (Check QRadar if Offense was created) - Tried " +i+ " attempts, but failed.")
  
 
 # << Start >>
 if args.new_test:
     newTest()
-elif args.test_id > 0:
-    testID(args.test_id)
+elif args.id > 0:
+    testID(args.id)
