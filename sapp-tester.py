@@ -285,16 +285,19 @@ def testMatrix(tID, ticketNumber):
         if response.status_code == 200:
             # Parse the response body as a JSON object
             response_data = json.loads(response.content)
+            print(response_data)
             # Extract the messages from the response data
             messages = [event["content"]["body"] for event in response_data["rooms"]["join"]["!qyLpnAmwoEvfFzbSgt:matrix.fulminata.eu"]["timeline"]["events"]]
             # Print the messages
             dlog("\tLast Matrix Messages: ", messages)
 
             # Search the messages for the string "ABC"
-            if str(ticketNumber) in messages:
-                slog("i", tID, "[Check 4/4 SUCCESS] Alert message was sent to matrix.")
-            else:
-                dlog("\tMessage not found yet.")
+            for message in messages:
+                if str(tID) in message:
+                    slog("i", tID, "[Check 4/4 SUCCESS] Alert message was sent to matrix.")
+                    return True
+                else:
+                    dlog("\tMessage not found yet.")
 
         else:
             # Print the error message
@@ -313,7 +316,8 @@ def continuePipeline(tID, ticketNumber):
         # Matrix Checks
         if(testMatrix(tID, ticketNumber)):
             slog("i", tID, "[Result: PIPELINE SUCCESS] All critical checks passed successful!")
-            raise SystemExit('Exiting program (0)')
+            dlog('Exiting program (0)')
+            sys.exit()
         else:
             slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed at Matrix check!")
             raise SystemExit('Exiting program (-1)')
