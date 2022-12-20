@@ -283,17 +283,17 @@ def sendWarning(tID, level):
         msg = ""
 
         if level == 4:
-            msg = "ℹ️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 4/4 (Check Matrix)] Please check Matrix."
+            msg = "ℹ️ SAPP-Tester: [Priorität "+str(level)+"] [SAPP Test failed at Check 4/4 (Check Matrix)] Please check Matrix."
         if level == 3:
-            msg = "ℹ️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 3/4 (Check OTRS Ticket)] Please check OTRS."
+            msg = "ℹ️ SAPP-Tester: [Priorität "+str(level)+"] [SAPP Test failed at Check 3/4 (Check OTRS Ticket)] Please check OTRS."
         if level == 2:
-            msg = "⚠️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 2/4 (Check if Offense generated OTRS Ticket)] Please check OTRS-API-ORCHESTRATOR for errors or warnings."
+            msg = "⚠️ SAPP-Tester: [Priorität "+str(level)+"] [SAPP Test failed at Check 2/4 (Check if Offense generated OTRS Ticket)] Please check OTRS-API-ORCHESTRATOR for errors or warnings."
         if level == 1 and tID.startswith("Q"):
-            msg = "❗️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 1/4 (Check if QRadar generated Offense)] Please check QRadar!"
+            msg = "❗️ SAPP-Tester: [Priorität "+str(level)+"] [SAPP Test failed at Check 1/4 (Check if QRadar generated Offense)] Please check QRadar!"
         elif level == 1 and tID.startswith("K"):
-            msg = "❗️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed at Check 1/4 (Check if Kibana generated alert)] Please check Kibana!"
+            msg = "❗️ SAPP-Tester: [Priorität "+str(level)+"] [SAPP Test failed at Check 1/4 (Check if Kibana generated alert)] Please check Kibana!"
         if level <= 0:
-            msg = "❗️❗️ SAPP-Tester: [Priorität "+str(Priority)+"] [SAPP Test failed before Check 1/4] Check if SAPP-Tester itself works correctly!"
+            msg = "❗️❗️ SAPP-Tester: [Priorität "+str(level)+"] [SAPP Test failed before Check 1/4] Check if SAPP-Tester itself works correctly!"
 
         msg=msg+" | tID: "+tID
         d = {"msgtype":"m.text", "body":msg}
@@ -302,7 +302,10 @@ def sendWarning(tID, level):
             print("[WARNING] Could not send Matrix Alert in Alert_Ticket() -> Reponse not OK (200)")
             print(res.json())
     except:
-        pass    
+        try:
+            slog("e", tID, "Could not send warning message.")
+        except:
+            slog("e", "?", "Could not send warning message. Also could not get tID.")  
 
 
 
@@ -406,12 +409,18 @@ def testID(tID):
 
 
 # << Start >>
-if args.new_test:
-    newTest()
-elif args.id.startswith("Q") or args.id.startswith("K"):
-    testID(args.id)
-else:
-    slog("e", str(args.id), "Couldn't start SAPP-Tester. Invalid ID.")
+try:
+    if args.new_test:
+        newTest()
+    elif args.id.startswith("Q") or args.id.startswith("K"):
+        testID(args.id)
+    else:
+        slog("e", str(args.id), "Couldn't start SAPP-Tester. Invalid ID.")
+        sendWarning("?", 0)
+except Exception as e:
+    slog("e", "0", str(e))
+    sendWarning("?", 0)
+
 
 # */15 * * * * bash -c "if [ $(expr $RANDOM % 8) -eq 0 ]; then /usr/bin/python3 /root/Security-Alert-Pipeline-Production-Tester/sapp-tester.py --new-test --qradar-only; fi"
 # */5 * * * * bash -c "if [ $(expr $RANDOM % 1) -eq 0 ]; then /usr/bin/python3 /root/Security-Alert-Pipeline-Production-Tester/sapp-tester.py --new-test --qradar-only; fi"
