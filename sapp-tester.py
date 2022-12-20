@@ -25,6 +25,8 @@ from pyotrs import Client
 from pyotrs.lib import Article, Ticket
 from datetime import timedelta
 
+import sys
+
 # CONSTANTS
 MAX_TEST_QRADAR = 500 # 10 second wait for every round
 MAX_TEST_OTRS = 50
@@ -34,15 +36,25 @@ OTRS_USER_PW = os.environ['OTRS_USER_PW']
 
 # Instantiate the tester...
 parser = argparse.ArgumentParser(description='SAPP-Tester')
-parser.add_argument('--id', type=int)
+parser.add_argument('--id', type=str)
 parser.add_argument('--new-test', action='store_true')
+parser.add_argument('--qradar-only', action='store_true')
+parser.add_argument('--kibana-only', action='store_true')
 args = parser.parse_args()
+
 
 def newTest():
     dlog("Will start a new Test...")
     id = random.randint(0,99999999)
-    slog("i", id, "Starting a new test now: SAPP-Test Initiator is True . Test-IP:'123.123.123.123' Keyword=QUEBEC. Test ID=", str(id))
-    testID(id)
+    if args.qradar-only or (not args.kibana-only):
+        id = "Q"+str(id)
+        slog("i", id, "Starting a new test with QRadar as starting point: SAPP-Test Initiator is True . Test-IP:'123.123.123.123' Keyword=QUEBEC. Test ID=", str(id))
+        testID(id)
+    if args.kibana-only or (not args.qradar-only):
+        id = "K"+str(id)
+        slog("i", id, "Starting a new test with Kibana as starting point. Test ID=", str(id))
+        # ...
+        testID(id)
 
 def search(values, searchFor):
     for k in values:
@@ -119,23 +131,27 @@ class QRadar():
                 },
             )
         except requests.exceptions.RequestException as e:
-            slog("e", "0", str(e))
-            slog("e", "0", e.response.text)
+            slog("w", tID, str(e))
+            slog("w", tID , e.response.text)
+            return False
+        return True
 
-    def set_closed(self, offense):
+    def set_closed(self, offense, tID):
         try:
             _ = self.client.request(
                 method="POST",
                 path="/api/siem/offenses/" + str(offense),
                 params={
                     "fields": "",
-                    "status": "closed",
+                    "status": 1,
                     "closing_reason_id": 1
                 },
             )
         except requests.exceptions.RequestException as e:
-            slog("e", "0", str(e))
-            slog("e", "0", e.response.text)
+            slog("w", tID, str(e))
+            slog("w", tID , e.response.text)
+            return False
+        return True
 
 def default(obj):
     if isinstance(obj, datetime.datetime):
@@ -185,10 +201,11 @@ def testQradar(tID):
 
                         for note in notes:
                             if "Ticket" in note["note_text"]:
-                                qradar.create_note(offense["id"], tID)
-                                qradar.set_closed(offense["id"])
                                 ticketID = re.findall(r'\d+', note["note_text"])[0]
                                 if int(ticketID) > 0:
+                                    # Closing dummy offense
+                                    if not (qradar.create_note(offense["id"], tID) and qradar.set_closed(offense["id"], tID)):
+                                        slog("w", tID, "Failed to close dummy offense.")
                                     return True, ticketID
                     else:
                         slog("d", tID, "Ticket not created in OTRS yet.")
@@ -232,31 +249,56 @@ def testOTRS(tID, ticketNumber):
             slog("i", tID, "[Quality Check FAILED] Ticket contains no enrichment data from VT (tried "+str(MAX_TEST_OTRS -  i)+" times).") 
             return True # Return true, even if Quality Check failed, as it is not critical.
 
-
-
         sleep(10)
+    return False
+
+
+def testMatrix(tID, ticketNumber):
+    pass
+
+def continuePipeline(tID, ticketNumber):
+    slog("i", tID, "[Check 2/x SUCCESS] OTRS Ticket was created. OTRS Ticket#", ticketNumber)
+            
+    # OTRS Checks
+    if(testOTRS(tID, ticketNumber)): 
+        # Matrix Checks
+        if(testMatrix(tID, ticketNumber)):
+            slog("i", tID, "[Result: PIPELINE SUCCESS] All critical checks passed successful!")
+            raise SystemExit('Exiting program (0)')
+        else:
+            slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed at Matrix check!")
+            raise SystemExit('Exiting program (-1)')
+    else:
+        slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed at OTRS check!")
+        raise SystemExit('Exiting program (-1)')
+    sleep(10)
+
+
+
 
 def testID(tID):
-    slog("i", tID, "Starting the production test for ID ", tID, "...")
+
+    if tID.startswith('Q'):
+        slog("i", tID, "Starting the production test with startpoint 'QRadar' with ID ", tID, "...")
+        for i in range(1, MAX_TEST_QRADAR):
+            slog("d", tID, "[Check 1/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if QRadar is reachable and if Offense was created...")
+            done, ticketNumber = testQradar(tID)
+            if done:
+                continuePipeline(tID, ticketNumber)
+            sleep(10)
+        slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed for QRadar check!")
+
+    elif tID.startswith('Q'):
+        slog("i", tID, "Starting the production test with startpoint 'Kibana' with ID ", tID, "...")
+
 
     # QRadar Checks:
-    for i in range(1, MAX_TEST_QRADAR):
-        slog("d", tID, "[Check 1/x | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if QRadar is reachable and if Offense was created...")
 
-        done, ticketID = testQradar(tID)
-        if done:
-            slog("i", tID, "[Check 2/x SUCCESS] OTRS Ticket was created. OTRS Ticket#", ticketID)
-            
-            # OTRS Checks
-            if(testOTRS(tID, ticketID)): 
-                pass
-        sleep(10)
-    # TODO QRadar test failed.
-    slog('w', tID, "Check 1/x (Check QRadar if Offense was created) - Tried " +i+ " attempts, but failed.")
- 
 
 # << Start >>
 if args.new_test:
     newTest()
-elif args.id > 0:
+elif args.id.startswith("Q") or args.id.startswith("K"):
     testID(args.id)
+else:
+    slog("e", str(args.id), "Couldn't start SAPP-Tester. Invalid ID.")
