@@ -292,8 +292,10 @@ def sendWarning(tID, level):
             msg = "❗️ SAPP-Tester: [Priorität "+str(level)+"] [SAPP Test failed at Check 1/4 (Check if QRadar generated Offense)] Please check QRadar!"
         elif level == 1 and tID.startswith("K"):
             msg = "❗️ SAPP-Tester: [Priorität "+str(level)+"] [SAPP Test failed at Check 1/4 (Check if Kibana generated alert)] Please check Kibana!"
-        if level <= 0:
+        if level == 0:
             msg = "❗️❗️ SAPP-Tester: [Priorität "+str(level)+"] [SAPP Test failed before Check 1/4] Check if SAPP-Tester itself works correctly!"
+        if level == -1:
+            msg = "ℹ️ SAPP-Tester: [Priorität 4] [SAPP Quality Check failed (Check if ticket enrichtment works) Check VT API limit."
 
         msg=msg+" | tID: "+tID
         d = {"msgtype":"m.text", "body":msg}
@@ -339,7 +341,7 @@ def testMatrix(tID, ticketNumber):
 
             # Search the messages for the string "ABC"
             for message in messages:
-                if str(tID) in message:
+                if tID in message:
                     slog("i", tID, "[Check 4/4 SUCCESS] Alert message was sent to matrix.")
                     return True
                 else:
@@ -349,7 +351,8 @@ def testMatrix(tID, ticketNumber):
             # Print the error message
             slog("w", tID, "Error, got error message in reponse from Matrix:")
             slog("w", tID, f"Error {response.status_code}: {response.text}")
-        sleep(5)
+        sleep(10)
+    return False
 
 
 
