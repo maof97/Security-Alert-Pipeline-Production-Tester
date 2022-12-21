@@ -370,11 +370,11 @@ def continuePipeline(tID, ticketNumber):
         else:
             slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed at Matrix check!")
             sendWarning(tID, 4)
-            raise SystemExit('Exiting program (-1)')
+            sys.exit()
     else:
         slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed at OTRS check!")
         sendWarning(tID, 3)
-        raise SystemExit('Exiting program (-1)')
+        sys.exit()
     sleep(10)
 
 
@@ -399,10 +399,12 @@ def testID(tID):
                     sleep(10)
                 slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed for QRADAR <-> OTRS check!")
                 sendWarning(tID, 2)
+                sys.exit()
             sleep(10)
 
         slog("w", tID, "[Result: PIPELINE FAILED] Pipeline failed for QRadar check!")
         sendWarning(tID, 1)
+        sys.exit()
 
     elif tID.startswith('Q'):
         slog("i", tID, "Starting the production test with startpoint 'Kibana' with ID ", tID, "...")
@@ -423,6 +425,7 @@ try:
 except Exception as e:
     slog("e", "0", str(e))
     sendWarning("?", 0)
+    sys.exit()
 
 
 # */15 * * * * bash -c "if [ $(expr $RANDOM % 8) -eq 0 ]; then /usr/bin/python3 /root/Security-Alert-Pipeline-Production-Tester/sapp-tester.py --new-test --qradar-only; fi"
