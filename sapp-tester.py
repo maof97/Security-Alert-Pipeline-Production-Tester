@@ -246,7 +246,7 @@ def testOTRS(tID, ticketID):
             # ...
             client = Client(OTRS_URL,"SIEMUser",OTRS_USER_PW)
             client.session_restore_or_create()
-            ticket = client.ticket_get_by_id(ticket_id, articles=True)
+            ticket = client.ticket_get_by_id(ticketID, articles=True)
             ticketTitle = ticket.field_get("Title")
 
             if str(tID) in ticketTitle:
