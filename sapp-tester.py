@@ -238,7 +238,7 @@ def testQradar(tID, reCheck):
         return 1, ""
 
 
-def testOTRS(tID, ticketNumber):
+def testOTRS(tID, ticketID):
     for i in range(1, MAX_TEST_OTRS):
         try: 
             slog("d", tID, "[Check 3/4 | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if OTRS is reachable and ticket exists...")
@@ -246,7 +246,7 @@ def testOTRS(tID, ticketNumber):
             # ...
             client = Client(OTRS_URL,"SIEMUser",OTRS_USER_PW)
             client.session_restore_or_create()
-            ticket = client.ticket_get_by_number(ticketNumber,articles=True)
+            ticket = client.ticket_get_by_id(ticket_id, articles=True)
             ticketTitle = ticket.field_get("Title")
 
             if str(tID) in ticketTitle:
