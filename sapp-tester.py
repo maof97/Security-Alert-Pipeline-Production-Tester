@@ -239,37 +239,42 @@ def testQradar(tID, reCheck):
 
 
 def testOTRS(tID, ticketNumber):
-    for i in range(1, MAX_TEST_OTRS): 
-        slog("d", tID, "[Check 3/4 | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if OTRS is reachable and ticket exists...")
-        dlog("\tConnecting to OTRS...")
-        # ...
-        client = Client(OTRS_URL,"SIEMUser",OTRS_USER_PW)
-        client.session_restore_or_create()
-        ticket = client.ticket_get_by_number(ticketNumber,articles=True)
-        ticketTitle = ticket.field_get("Title")
+    for i in range(1, MAX_TEST_OTRS):
+        try: 
+            slog("d", tID, "[Check 3/4 | Attempt ", i, "/", MAX_TEST_OTRS,"] Checking if OTRS is reachable and ticket exists...")
+            dlog("\tConnecting to OTRS...")
+            # ...
+            client = Client(OTRS_URL,"SIEMUser",OTRS_USER_PW)
+            client.session_restore_or_create()
+            ticket = client.ticket_get_by_number(ticketNumber,articles=True)
+            ticketTitle = ticket.field_get("Title")
 
-        if str(tID) in ticketTitle:
-            dlog("\tFound ticket with correct tID: ", ticketTitle)
-            slog("i", tID, "[Check 3/4 SUCCESS] OTRS reachable and Ticket exists.") 
+            if str(tID) in ticketTitle:
+                dlog("\tFound ticket with correct tID: ", ticketTitle)
+                slog("i", tID, "[Check 3/4 SUCCESS] OTRS reachable and Ticket exists.") 
 
-            # Checking if VT result is in ticket
-            MAX_TEST_OTRS_QC = MAX_TEST_OTRS - i
-            for j in range(1, MAX_TEST_OTRS_QC):
-                slog("d", tID, "[Quality Check | Attempt ", j, "/", MAX_TEST_OTRS_QC,"] Checking if ticket contains ticket enrichtment (VT)...")
-                # ticket = client.ticket_get_by_number(ticketNumber,articles=True)  TODO REANABLE 
-                ticketDict = ticket.to_dct()
-                articleArray = ticketDict['Ticket']['Article']
+                # Checking if VT result is in ticket
+                MAX_TEST_OTRS_QC = MAX_TEST_OTRS - i
+                for j in range(1, MAX_TEST_OTRS_QC):
+                    slog("d", tID, "[Quality Check | Attempt ", j, "/", MAX_TEST_OTRS_QC,"] Checking if ticket contains ticket enrichtment (VT)...")
+                    # ticket = client.ticket_get_by_number(ticketNumber,articles=True)  TODO REANABLE 
+                    ticketDict = ticket.to_dct()
+                    articleArray = ticketDict['Ticket']['Article']
 
-                for i in range(len(articleArray)):
-                    if "API" in articleArray[i]["From"] and ("VirusTotal Scan Result for IP" in articleArray[i]["Subject"]):
-                        slog("i", tID, "[Quality Check SUCCESS] Ticket contains enrichment data from VT.") 
-                        return True
-                #sleep(5) TODO REANABLE SLEEP
-            slog("i", tID, "[Quality Check FAILED] Ticket contains no enrichment data from VT (tried "+str(MAX_TEST_OTRS -  i)+" times).") 
-            sendWarning(tID, -1)
-            return True # Return true, even if Quality Check failed, as it is not critical.
+                    for i in range(len(articleArray)):
+                        if "API" in articleArray[i]["From"] and ("VirusTotal Scan Result for IP" in articleArray[i]["Subject"]):
+                            slog("i", tID, "[Quality Check SUCCESS] Ticket contains enrichment data from VT.") 
+                            return True
+                    #sleep(5) TODO REANABLE SLEEP
+                slog("i", tID, "[Quality Check FAILED] Ticket contains no enrichment data from VT (tried "+str(MAX_TEST_OTRS -  i)+" times).") 
+                sendWarning(tID, -1)
+                return True # Return true, even if Quality Check failed, as it is not critical.
 
-        sleep(10)
+            sleep(10)
+        except Exception as e:
+            dlog("Exception in testOTRS: ", str(e))
+            sleep(10)
+            continue
     return False
 
 
@@ -303,9 +308,9 @@ def sendWarning(tID, level):
         if(str(res.status_code) != '200'):
             print("[WARNING] Could not send Matrix Alert in Alert_Ticket() -> Reponse not OK (200)")
             print(res.json())
-    except:
+    except Exception as e:
         try:
-            slog("e", tID, "Could not send warning message.")
+            slog("e", tID, "Could not send warning message."+str(e))
         except:
             slog("e", "?", "Could not send warning message. Also could not get tID.")  
 
