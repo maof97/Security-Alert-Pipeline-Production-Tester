@@ -257,7 +257,7 @@ def testOTRS(tID, ticketID):
                 MAX_TEST_OTRS_QC = MAX_TEST_OTRS - i
                 for j in range(1, MAX_TEST_OTRS_QC):
                     slog("d", tID, "[Quality Check | Attempt ", j, "/", MAX_TEST_OTRS_QC,"] Checking if ticket contains ticket enrichtment (VT)...")
-                    ticket = client.ticket_get_by_id(ticket_id, articles=True)
+                    ticket = client.ticket_get_by_id(ticketID, articles=True)
                     ticketDict = ticket.to_dct()
                     articleArray = ticketDict['Ticket']['Article']
 
