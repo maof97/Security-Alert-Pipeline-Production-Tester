@@ -257,15 +257,15 @@ def testOTRS(tID, ticketID):
                 MAX_TEST_OTRS_QC = MAX_TEST_OTRS - i
                 for j in range(1, MAX_TEST_OTRS_QC):
                     slog("d", tID, "[Quality Check | Attempt ", j, "/", MAX_TEST_OTRS_QC,"] Checking if ticket contains ticket enrichtment (VT)...")
-                    # ticket = client.ticket_get_by_number(ticketNumber,articles=True)  TODO REANABLE 
+                    ticket = client.ticket_get_by_number(ticketNumber,articles=True)
                     ticketDict = ticket.to_dct()
                     articleArray = ticketDict['Ticket']['Article']
 
                     for i in range(len(articleArray)):
-                        if "API" in articleArray[i]["From"] and ("VirusTotal Scan Result for IP" in articleArray[i]["Subject"]):
+                        if "API" in articleArray[i]["From"] and ("VirusTotal Scan Result for" in articleArray[i]["Subject"]):
                             slog("i", tID, "[Quality Check SUCCESS] Ticket contains enrichment data from VT.") 
                             return True
-                    #sleep(5) TODO REANABLE SLEEP
+                    sleep(10)
                 slog("i", tID, "[Quality Check FAILED] Ticket contains no enrichment data from VT (tried "+str(MAX_TEST_OTRS -  i)+" times).") 
                 sendWarning(tID, -1)
                 return True # Return true, even if Quality Check failed, as it is not critical.
