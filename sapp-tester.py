@@ -306,7 +306,7 @@ def sendWarning(tID, level):
         d = {"msgtype":"m.text", "body":msg}
         res = requests.post(req_url, json=d, verify=False)
         if(str(res.status_code) != '200'):
-            print("[WARNING] Could not send Matrix Alert in Alert_Ticket() -> Reponse not OK (200)")
+            dlog("[WARNING] Could not send Matrix Alert in Alert_Ticket() -> Reponse not OK (200)")
             print(res.json())
     except Exception as e:
         try:
